@@ -15,7 +15,7 @@ const { verifyRequest } = require("@shopify/koa-shopify-auth");
 // Env Configuration
 dotenv.config();
 const { SHOPIFY_API_SECRET_KEY, SHOPIFY_API_KEY } = process.env;
-const port = parseInt(process.env.PORT, 10) || 3000;
+const port = parseInt(process.env.PORT, 10) || 5000;
 
 // Create server using Koa
 const server = new Koa();
@@ -26,6 +26,9 @@ server.keys = [SHOPIFY_API_SECRET_KEY];
 const { router } = require('./server/graphql/routes');
 server.use(router.routes());
 server.use(router.allowedMethods());
+const { RestApiRoutes } = require('./server/rest/routes');
+server.use(RestApiRoutes.routes());
+server.use(RestApiRoutes.allowedMethods());
 
 // Authenticate app with Shopify
 server.use(
