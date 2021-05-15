@@ -5,7 +5,7 @@ const next = require('next');
 const dotenv = require("dotenv");
 
 // const { gqlRoutes } = require('./server/graphql/routes');
-// const { restApiRoutes } = require('./server/rest/routes');
+const { restApiRoutes } = require('./server/rest/routes');
 
 // Import Shopify/Koa modules to assist with authentication
 const { verifyRequest } = require("@shopify/koa-shopify-auth");
@@ -35,11 +35,18 @@ const ACTIVE_SHOPIFY_SHOPS = {};
 // Koa Server
 const server = new Koa();
 
+// Test Route
+router.get('/test', ctx => {
+  ctx.body = `Hello, World`
+});
+
+
 // Router 
 const router = new Router();
 // GraphQL / REST Routes
 // server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
-// server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
+server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
+server.use(router.routes()).use(router.allowedMethods());
 
 // 
 app.prepare().then(() => {
@@ -76,14 +83,6 @@ app.prepare().then(() => {
   router.get("(/_next/static/.*)", handleRequest);
   router.get("/_next/webpack-hmr", handleRequest);
   router.get("(.*)", verifyRequest(), handleRequest);
-
-  console.log(`TEST ROUTE`)
-  // Test Route
-  router.get('/test', ctx => {
-    ctx.body = `Hello, World`
-  });
-
-  server.use(router.routes()).use(router.allowedMethods());
 
   server.listen(port, () => {
     console.log(`server listening to port --> ${port}`)
