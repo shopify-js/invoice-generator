@@ -30,8 +30,8 @@ restApiRoutes.get('/api/orders', async (ctx) => {
 });
 
 // Test Route
-restApiRoutes.get('/test', ctx => {
-    ctx.body = `Hello, World`
+restApiRoutes.get('/test/:name', ctx => {
+    ctx.body = `Hello, ${ctx.params.name}`
 });
 
 module.exports = {
