@@ -1,7 +1,9 @@
 // Import Koa / Dotenv / Fetch modules
 require("isomorphic-fetch");
 const Koa = require("koa");
-const koaStatic = require("koa-static");
+const KoaRouter = require('koa-router');
+const next = require('next');
+const static = require("koa-static");
 const mount = require("koa-mount");
 var bodyParser = require('koa-bodyparser');
 const session = require("koa-session");
@@ -9,53 +11,89 @@ const cors = require('@koa/cors');
 const dotenv = require("dotenv");
 
 // Import Shopify/Koa modules to assist with authentication
-const { default: createShopifyAuth } = require("@shopify/koa-shopify-auth");
 const { verifyRequest } = require("@shopify/koa-shopify-auth");
+const { default: createShopifyAuth } = require('@shopify/koa-shopify-auth');
+const { default: Shopify, ApiVersion } = require('@shopify/shopify-api');
 
 // Env Configuration
 dotenv.config();
-const { SHOPIFY_API_SECRET_KEY, SHOPIFY_API_KEY } = process.env;
-const port = process.env.PORT || 5000;
+const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
+const port = process.env.PORT || 3000;
 
-// Create server using Koa
-const server = new Koa();
-server.use(session(server));
-server.keys = [SHOPIFY_API_SECRET_KEY];
+Shopify.Context.initialize({
+    API_KEY: process.env.SHOPIFY_API_KEY,
+    API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
+    SCOPES: ["read_products", "write_products", "read_orders"],
+    HOST_NAME: process.env.SHOPIFY_APP_URL.replace(/https:\/\//, ""),
+    API_VERSION: ApiVersion.October20,
+    IS_EMBEDDED_APP: true,
+    SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
+  });
+
+// Next app
+const dev = process.env.NODE_ENV !== 'production';
+const app = next({ dev: dev });
+const handle = app.getRequestHandler();
+
+const ACTIVE_SHOPIFY_SHOPS = {};
+
+// Koa server
+// server.use(session(server));
+// server.keys = [SHOPIFY_API_SECRET];
 
 // Import and use server-side routes
-const { router } = require('./server/graphql/routes');
-server.use(router.routes());
-server.use(router.allowedMethods());
-const { RestApiRoutes } = require('./server/rest/routes');
-server.use(RestApiRoutes.routes());
-server.use(RestApiRoutes.allowedMethods());
+// const { router } = require('./server/graphql/routes');
+// const { RestApiRoutes } = require('./server/rest/routes');
+// server.use(RestApiRoutes.routes());
+// server.use(RestApiRoutes.allowedMethods());
 
-// Authenticate app with Shopify
-server.use(
-    createShopifyAuth({
-        apiKey: SHOPIFY_API_KEY,
-        secret: SHOPIFY_API_SECRET_KEY,
-        scopes: ["read_products", "write_products","read_orders"],
-        afterAuth(ctx) {
-            const { shop, accessToken } = ctx.session;
-            ctx.cookies.set("accessToken", accessToken, { httpOnly: false });
-            ctx.cookies.set("shopOrigin", shop, { httpOnly: false });
-            ctx.redirect("/");
+app.prepare().then(() => {
+    const server = new Koa();
+    const router = new KoaRouter();
+
+    server.keys = [Shopify.Context.API_SECRET_KEY];
+
+    server.use(
+        createShopifyAuth({
+          afterAuth(ctx) {
+            const {shop, scope} = ctx.state.shopify;
+            ACTIVE_SHOPIFY_SHOPS[shop] = scope;
+    
+            ctx.redirect(`/?shop=${shop}`);
+          },
+        }),
+      );
+
+    const handleRequest = async (ctx) => {
+        console.log(`Inside handleRequest`);
+        await handle(ctx.req, ctx.res);
+        ctx.respond = false;
+        ctx.res.statusCode = 200;
+    };
+
+    router.get("/", async (ctx) => {
+        const shop = ctx.query.shop;
+    
+        if (ACTIVE_SHOPIFY_SHOPS[shop] === undefined) {
+          ctx.redirect(`/auth?shop=${shop}`);
+        } else {
+          await handleRequest(ctx);
         }
-    })
-);
-server.use(verifyRequest());
+      });
 
-// Enable CORS (required to let Shopify access this API)
-server.use(cors());
+    // Routes
+    router.get('/test', ctx => {
+        ctx.body = `Hello, World`
+    });
 
-// Use module 'koa-bodyparser'
-server.use(bodyParser());
+    router.get("(/_next/static/.*)", handleRequest);
+    router.get("/_next/webpack-hmr", handleRequest);
+    router.get("(.*)", verifyRequest(), handleRequest);
 
-// Mount app on root path using compiled Vue app in the dist folder
-server.use(mount("/", koaStatic(__dirname + "/public")));
+    server.use(router.allowedMethods());
+    server.use(router.routes());
 
-// Start-up the server
-server.listen(port, () => {
-    console.log(`> Ready on http://localhost:${port}`);
+    server.listen(port, () => {
+        console.log(`server listening to port --> ${port}`)
+    });
 });
