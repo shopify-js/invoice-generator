@@ -77,8 +77,9 @@ app.prepare().then(() => {
   router.get("/_next/webpack-hmr", handleRequest);
   router.get("(.*)", verifyRequest(), handleRequest);
 
+  console.log(`TEST ROUTE`)
   // Test Route
-  restApiRoutes.get('/test', ctx => {
+  router.get('/test', ctx => {
     ctx.body = `Hello, World`
   });
 
