@@ -1,22 +1,20 @@
-// Import Koa / Dotenv / Fetch modules
 require("isomorphic-fetch");
 const Koa = require("koa");
 const Router = require('koa-router');
 const next = require('next');
 const dotenv = require("dotenv");
 
-const { gqlRoutes } = require('./server/graphql/routes');
-const { restApiRoutes } = require('./server/rest/routes');
+// const { gqlRoutes } = require('./server/graphql/routes');
+// const { restApiRoutes } = require('./server/rest/routes');
 
 // Import Shopify/Koa modules to assist with authentication
 const { verifyRequest } = require("@shopify/koa-shopify-auth");
 const { default: createShopifyAuth } = require('@shopify/koa-shopify-auth');
 const { default: Shopify, ApiVersion } = require('@shopify/shopify-api');
 
-// Env Configuration
+// Env Configuration and Context
 dotenv.config();
 const port = process.env.PORT || 3000;
-
 Shopify.Context.initialize({
   API_KEY: process.env.SHOPIFY_API_KEY,
   API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
@@ -40,8 +38,8 @@ const server = new Koa();
 // Router 
 const router = new Router();
 // GraphQL / REST Routes
-server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
-server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
+// server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
+// server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
 
 // 
 app.prepare().then(() => {
