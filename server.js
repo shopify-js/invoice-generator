@@ -86,12 +86,6 @@ app.prepare().then(() => {
     }
   });
 
-  // Enable CORS (required to let Shopify access this API)
-  server.use(cors());
-
-  // Use module 'koa-bodyparser'
-  server.use(bodyParser());
-
   // Next static files
   router.get("(/_next/static/.*)", handleRequest);
   router.get("/_next/webpack-hmr", handleRequest);
