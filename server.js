@@ -35,7 +35,6 @@ const ACTIVE_SHOPIFY_SHOPS = {};
 // Koa Server
 const server = new Koa();
 
-
 // Router 
 const router = new Router();
 
