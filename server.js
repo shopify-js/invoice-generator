@@ -3,18 +3,10 @@ const Koa = require("koa");
 const Router = require('koa-router');
 const next = require('next');
 const dotenv = require("dotenv");
-const bodyParser = require('koa-bodyparser');
-const cors = require('@koa/cors');
-const session = require("koa-session");
-
-
-// const { gqlRoutes } = require('./server/graphql/routes');
-// const { restApiRoutes } = require('./server/rest/routes');
-// const router = require('./server/router')
 
 // Import Shopify/Koa modules to assist with authentication
-const { verifyRequest } = require("@shopify/koa-shopify-auth");
 const { default: createShopifyAuth } = require('@shopify/koa-shopify-auth');
+const { verifyRequest } = require("@shopify/koa-shopify-auth");
 const { default: Shopify, ApiVersion } = require('@shopify/shopify-api');
 
 // Env Configuration and Context
@@ -23,7 +15,7 @@ const port = process.env.PORT || 3000;
 Shopify.Context.initialize({
   API_KEY: process.env.SHOPIFY_API_KEY,
   API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
-  SCOPES: ["read_products", "write_products", "read_orders", "read_draft_orders"],
+  SCOPES: ["read_products", "write_products", "read_orders"],
   HOST_NAME: process.env.SHOPIFY_APP_URL.replace(/https:\/\//, ""),
   API_VERSION: ApiVersion.October20,
   IS_EMBEDDED_APP: true,
@@ -31,7 +23,6 @@ Shopify.Context.initialize({
 });
 
 const ACTIVE_SHOPIFY_SHOPS = {};
-const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
 
 // GraphQL / REST Routes
 // server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
@@ -41,6 +32,7 @@ const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev: dev });
 const handle = app.getRequestHandler();
+
 app.prepare().then(() => {
   // Koa Server
   const server = new Koa();
@@ -59,7 +51,6 @@ app.prepare().then(() => {
   );
 
   const handleRequest = async (ctx) => {
-    console.log(`Inside handleRequest`);
     await handle(ctx.req, ctx.res);
     ctx.respond = false;
     ctx.res.statusCode = 200;
