@@ -34,15 +34,13 @@ const ACTIVE_SHOPIFY_SHOPS = {};
 
 // Koa Server
 const server = new Koa();
+const router = new Router();
 
 // Test Route
 router.get('/test', ctx => {
   ctx.body = `Hello, World`
 });
 
-
-// Router 
-const router = new Router();
 // GraphQL / REST Routes
 // server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
 server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
