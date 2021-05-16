@@ -3,9 +3,12 @@ const Koa = require("koa");
 const Router = require('koa-router');
 const next = require('next');
 const dotenv = require("dotenv");
+const bodyParser = require('koa-bodyparser');
+const cors = require('@koa/cors');
+
 
 // const { gqlRoutes } = require('./server/graphql/routes');
-const { restApiRoutes } = require('./server/rest/routes');
+// const { restApiRoutes } = require('./server/rest/routes');
 
 // Import Shopify/Koa modules to assist with authentication
 const { verifyRequest } = require("@shopify/koa-shopify-auth");
@@ -35,6 +38,7 @@ const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
 
 // Koa Server
 const server = new Koa();
+server.use(session(server));
 const router = new Router();
 
 // Test Route
@@ -44,27 +48,24 @@ router.get('/test', ctx => {
 
 // GraphQL / REST Routes
 // server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
-server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
+// server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
 server.use(router.routes()).use(router.allowedMethods());
 
 // 
 app.prepare().then(() => {
   server.keys = [Shopify.Context.API_SECRET_KEY];
-
+  console.log(server.keys)
   server.use(
     createShopifyAuth({
       apiKey: SHOPIFY_API_KEY,
       secret: SHOPIFY_API_SECRET,
-      scopes: ["read_products", "write_products","read_orders"],
+      scopes: ["read_products", "write_products", "read_orders"],
       afterAuth(ctx) {
-        const { shop, scope } = ctx.state.shopify;
         const { shop, accessToken } = ctx.session;
-        ACTIVE_SHOPIFY_SHOPS[shop] = scope;
         ctx.cookies.set("accessToken", accessToken, { httpOnly: false });
         ctx.cookies.set("shopOrigin", shop, { httpOnly: false });
         ctx.redirect("/");
-        // ctx.redirect(`/?shop=${shop}`);
-      },
+      }
     }),
   );
 
@@ -83,6 +84,12 @@ app.prepare().then(() => {
       await handleRequest(ctx);
     }
   });
+
+  // Enable CORS (required to let Shopify access this API)
+  server.use(cors());
+
+  // Use module 'koa-bodyparser'
+  server.use(bodyParser());
 
   // Next static files
   router.get("(/_next/static/.*)", handleRequest);
