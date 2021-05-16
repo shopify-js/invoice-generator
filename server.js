@@ -10,7 +10,7 @@ const session = require("koa-session");
 
 // const { gqlRoutes } = require('./server/graphql/routes');
 // const { restApiRoutes } = require('./server/rest/routes');
-const router = require('./server/router')
+// const router = require('./server/router')
 
 // Import Shopify/Koa modules to assist with authentication
 const { verifyRequest } = require("@shopify/koa-shopify-auth");
@@ -40,6 +40,7 @@ const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
 
 // Koa Server
 const server = new Koa();
+const router = new Router();
 server.use(session(server));
 
 // GraphQL / REST Routes
@@ -50,7 +51,6 @@ server.use(router.routes()).use(router.allowedMethods());
 // 
 app.prepare().then(() => {
   server.keys = [Shopify.Context.API_SECRET_KEY];
-  console.log(server.keys)
   server.use(
     createShopifyAuth({
       apiKey: SHOPIFY_API_KEY,
