@@ -4,9 +4,12 @@ const Router = require('koa-router');
 const next = require('next');
 const dotenv = require("dotenv");
 
+// const { gqlRoutes } = require('./server/graphql/routes');
+const { restApiRoutes } = require('./server/rest/routes');
+
 // Import Shopify/Koa modules to assist with authentication
-const { default: createShopifyAuth } = require('@shopify/koa-shopify-auth');
 const { verifyRequest } = require("@shopify/koa-shopify-auth");
+const { default: createShopifyAuth } = require('@shopify/koa-shopify-auth');
 const { default: Shopify, ApiVersion } = require('@shopify/shopify-api');
 
 // Env Configuration and Context
@@ -15,30 +18,40 @@ const port = process.env.PORT || 3000;
 Shopify.Context.initialize({
   API_KEY: process.env.SHOPIFY_API_KEY,
   API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
-  SCOPES: ["read_products", "write_products", "read_orders"],
+  SCOPES: ["read_products", "write_products", "read_orders", "read_draft_orders"],
   HOST_NAME: process.env.SHOPIFY_APP_URL.replace(/https:\/\//, ""),
   API_VERSION: ApiVersion.October20,
   IS_EMBEDDED_APP: true,
   SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
 });
 
-const ACTIVE_SHOPIFY_SHOPS = {};
-
-// GraphQL / REST Routes
-// server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
-// server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
-
-// next app
+// Next app
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev: dev });
 const handle = app.getRequestHandler();
 
-app.prepare().then(() => {
-  // Koa Server
-  const server = new Koa();
-  const router = new Router();
+const ACTIVE_SHOPIFY_SHOPS = {};
 
+// Koa Server
+const server = new Koa();
+
+// Test Route
+router.get('/test', ctx => {
+  ctx.body = `Hello, World`
+});
+
+
+// Router 
+const router = new Router();
+// GraphQL / REST Routes
+// server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
+server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
+server.use(router.routes()).use(router.allowedMethods());
+
+// 
+app.prepare().then(() => {
   server.keys = [Shopify.Context.API_SECRET_KEY];
+
   server.use(
     createShopifyAuth({
       afterAuth(ctx) {
@@ -51,6 +64,7 @@ app.prepare().then(() => {
   );
 
   const handleRequest = async (ctx) => {
+    console.log(`Inside handleRequest`);
     await handle(ctx.req, ctx.res);
     ctx.respond = false;
     ctx.res.statusCode = 200;
@@ -70,10 +84,7 @@ app.prepare().then(() => {
   router.get("/_next/webpack-hmr", handleRequest);
   router.get("(.*)", verifyRequest(), handleRequest);
 
-  server.use(router.allowedMethods());
-  server.use(router.routes());
-
   server.listen(port, () => {
-    console.log(`> Server listening to port --> ${port}`)
+    console.log(`server listening to port --> ${port}`)
   });
 });
