@@ -31,6 +31,7 @@ const app = next({ dev: dev });
 const handle = app.getRequestHandler();
 
 const ACTIVE_SHOPIFY_SHOPS = {};
+const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
 
 // Koa Server
 const server = new Koa();
@@ -52,11 +53,17 @@ app.prepare().then(() => {
 
   server.use(
     createShopifyAuth({
+      apiKey: SHOPIFY_API_KEY,
+      secret: SHOPIFY_API_SECRET,
+      scopes: ["read_products", "write_products","read_orders"],
       afterAuth(ctx) {
         const { shop, scope } = ctx.state.shopify;
+        const { shop, accessToken } = ctx.session;
         ACTIVE_SHOPIFY_SHOPS[shop] = scope;
-
-        ctx.redirect(`/?shop=${shop}`);
+        ctx.cookies.set("accessToken", accessToken, { httpOnly: false });
+        ctx.cookies.set("shopOrigin", shop, { httpOnly: false });
+        ctx.redirect("/");
+        // ctx.redirect(`/?shop=${shop}`);
       },
     }),
   );
