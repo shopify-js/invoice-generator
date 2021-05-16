@@ -3,11 +3,6 @@ require("isomorphic-fetch");
 const Koa = require("koa");
 const KoaRouter = require('koa-router');
 const next = require('next');
-const static = require("koa-static");
-const mount = require("koa-mount");
-var bodyParser = require('koa-bodyparser');
-const session = require("koa-session");
-const cors = require('@koa/cors');
 const dotenv = require("dotenv");
 
 // Import Shopify/Koa modules to assist with authentication
@@ -17,7 +12,6 @@ const { default: Shopify, ApiVersion } = require('@shopify/shopify-api');
 
 // Env Configuration
 dotenv.config();
-const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
 const port = process.env.PORT || 3000;
 
 Shopify.Context.initialize({
@@ -36,16 +30,6 @@ const app = next({ dev: dev });
 const handle = app.getRequestHandler();
 
 const ACTIVE_SHOPIFY_SHOPS = {};
-
-// Koa server
-// server.use(session(server));
-// server.keys = [SHOPIFY_API_SECRET];
-
-// Import and use server-side routes
-// const { router } = require('./server/graphql/routes');
-// const { RestApiRoutes } = require('./server/rest/routes');
-// server.use(RestApiRoutes.routes());
-// server.use(RestApiRoutes.allowedMethods());
 
 app.prepare().then(() => {
     const server = new Koa();
