@@ -30,38 +30,31 @@ Shopify.Context.initialize({
   SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
 });
 
-// Next app
-const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev: dev });
-const handle = app.getRequestHandler();
-
 const ACTIVE_SHOPIFY_SHOPS = {};
 const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
-
-// Koa Server
-const server = new Koa();
-const router = new Router();
-server.use(session(server));
 
 // GraphQL / REST Routes
 // server.use(gqlRoutes.routes()).use(gqlRoutes.allowedMethods());
 // server.use(restApiRoutes.routes()).use(restApiRoutes.allowedMethods());
-server.use(router.routes()).use(router.allowedMethods());
 
-// 
+// next app
+const dev = process.env.NODE_ENV !== 'production';
+const app = next({ dev: dev });
+const handle = app.getRequestHandler();
 app.prepare().then(() => {
+  // Koa Server
+  const server = new Koa();
+  const router = new Router();
+
   server.keys = [Shopify.Context.API_SECRET_KEY];
   server.use(
     createShopifyAuth({
-      apiKey: SHOPIFY_API_KEY,
-      secret: SHOPIFY_API_SECRET,
-      scopes: ["read_products", "write_products", "read_orders"],
       afterAuth(ctx) {
-        const { shop, accessToken } = ctx.session;
-        ctx.cookies.set("accessToken", accessToken, { httpOnly: false });
-        ctx.cookies.set("shopOrigin", shop, { httpOnly: false });
-        ctx.redirect("/");
-      }
+        const { shop, scope } = ctx.state.shopify;
+        ACTIVE_SHOPIFY_SHOPS[shop] = scope;
+
+        ctx.redirect(`/?shop=${shop}`);
+      },
     }),
   );
 
@@ -86,7 +79,10 @@ app.prepare().then(() => {
   router.get("/_next/webpack-hmr", handleRequest);
   router.get("(.*)", verifyRequest(), handleRequest);
 
+  server.use(router.allowedMethods());
+  server.use(router.routes());
+
   server.listen(port, () => {
-    console.log(`server listening to port --> ${port}`)
+    console.log(`> Server listening to port --> ${port}`)
   });
 });
