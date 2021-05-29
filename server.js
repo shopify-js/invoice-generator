@@ -1,11 +1,15 @@
 require('isomorphic-fetch');
 const dotenv = require('dotenv');
 const Koa = require('koa');
-const next = require('next');
-const {default: createShopifyAuth} = require('@shopify/koa-shopify-auth');
-const {verifyRequest} = require('@shopify/koa-shopify-auth');
-const {default: Shopify, ApiVersion} = require('@shopify/shopify-api');
 const Router = require('koa-router');
+const Mongoose = require('mongoose');
+const next = require('next');
+const { default: createShopifyAuth } = require('@shopify/koa-shopify-auth');
+const { verifyRequest } = require('@shopify/koa-shopify-auth');
+const { default: Shopify, ApiVersion } = require('@shopify/shopify-api');
+
+const getSubscriptionUrl = require('./server/gql/getSubscriptionUrl');
+const userService = require('./server/service/shop-service');
 
 dotenv.config();
 
@@ -21,8 +25,16 @@ Shopify.Context.initialize({
 
 const port = parseInt(process.env.PORT, 10) || 3000;
 const dev = process.env.NODE_ENV !== 'production';
-const app = next({dev: dev});
+const app = next({ dev: dev });
 const handle = app.getRequestHandler();
+
+Mongoose.Promise = global.Promise;
+Mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("Successfully connected to MongoDB"))
+  .catch(err => {
+    console.log('Could not connect to the MongoDB. Exiting now...');
+    process.exit();
+  });
 
 const ACTIVE_SHOPIFY_SHOPS = {};
 
@@ -33,14 +45,45 @@ app.prepare().then(() => {
 
   server.use(
     createShopifyAuth({
-      afterAuth(ctx) {
-        const {shop, scope} = ctx.state.shopify;
+      async afterAuth(ctx) {
+        const {shop, scope, accessToken} = ctx.state.shopify;
         ACTIVE_SHOPIFY_SHOPS[shop] = scope;
 
-        ctx.redirect(`/?shop=${shop}`);
+        const registration = await Shopify.Webhooks.Registry.register({
+          shop,
+          accessToken,
+          path: '/webhooks',
+          topic: 'APP_UNINSTALLED',
+          apiVersion: ApiVersion.October20,
+          webhookHandler: (_topic, shop, _body) => {
+            console.log('App uninstalled');
+            delete ACTIVE_SHOPIFY_SHOPS[shop];
+          },
+        });
+
+        if (registration.success) {
+          console.log('Successfully registered webhook!');
+        } else {
+          console.log('Failed to register webhook', registration.result);
+        }
+
+        const returnUrl = `https://${Shopify.Context.HOST_NAME}/?shop=${shop}`;
+        const subscriptionUrl = await getSubscriptionUrl(accessToken, shop, returnUrl);
+        ctx.redirect(subscriptionUrl);
       },
     }),
   );
+
+  // GRAPHQL ROUTE
+  router.post("/graphql", verifyRequest({returnHeader: true}), async (ctx, next) => {
+    await Shopify.Utils.graphqlProxy(ctx.req, ctx.res);
+  });
+
+  // WEBHOOKS
+  router.post('/webhooks', async (ctx) => {
+    await Shopify.Webhooks.Registry.process(ctx.req, ctx.res);
+    console.log(`Webhook processed with status code 200`);
+  });
 
   const handleRequest = async (ctx) => {
     await handle(ctx.req, ctx.res);

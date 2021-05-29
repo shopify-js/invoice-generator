@@ -1,10 +1,13 @@
 import React from "react";
-import dbConnect from '../utils/dbConnect'
+import getOrders from "../server/rest/getOrders";
 
 class Index extends React.Component {
+  state = {}
+
   render() {
     return (
       <div>
+        <h1>List of orders</h1>
         <p>Sample app using React and Next.js</p>
       </div>
     )
@@ -12,8 +15,7 @@ class Index extends React.Component {
 }
 
 export async function getServerSideProps() {
-  await dbConnect()
-  
+  // await getOrders();
   return { props: {} }
 }
 
