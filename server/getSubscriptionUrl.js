@@ -37,7 +37,6 @@ const getSubscriptionUrl = async (accessToken, shop, returnUrl) => {
   }`;
 
   const client = new Shopify.Clients.Graphql(shop, accessToken);
-  const restClient = new Shopify.Clients.Rest(shop, accessToken);
   const response = await client.query({
     data: query,
   });
