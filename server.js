@@ -1,101 +1,58 @@
-require('isomorphic-fetch');
-const dotenv = require('dotenv');
-const Koa = require('koa');
-const next = require('next');
-const {default: createShopifyAuth} = require('@shopify/koa-shopify-auth');
-const {verifyRequest} = require('@shopify/koa-shopify-auth');
-const {default: Shopify, ApiVersion} = require('@shopify/shopify-api');
-const Router = require('koa-router');
-const getSubscriptionUrl = require('./server/getSubscriptionUrl');
+// Import Koa / Dotenv / Fetch modules
+require("isomorphic-fetch");
+const Koa = require("koa");
+const koaStatic = require("koa-static");
+const mount = require("koa-mount");
+var bodyParser = require('koa-bodyparser');
+const session = require("koa-session");
+const cors = require('@koa/cors');
+const dotenv = require("dotenv");
 
+// Import Shopify/Koa modules to assist with authentication
+const { default: createShopifyAuth } = require("@shopify/koa-shopify-auth");
+const { verifyRequest } = require("@shopify/koa-shopify-auth");
+
+// Env Configuration
 dotenv.config();
-
-Shopify.Context.initialize({
-  API_KEY: process.env.SHOPIFY_API_KEY,
-  API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
-  SCOPES: process.env.SHOPIFY_API_SCOPES.split(","),
-  HOST_NAME: process.env.SHOPIFY_APP_URL.replace(/https:\/\//, ""),
-  API_VERSION: ApiVersion.October20,
-  IS_EMBEDDED_APP: true,
-  SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
-});
-
 const port = parseInt(process.env.PORT, 10) || 3000;
-const dev = process.env.NODE_ENV !== 'production';
-const app = next({dev: dev});
-const handle = app.getRequestHandler();
+const { SHOPIFY_API_SECRET, SHOPIFY_API_KEY } = process.env;
 
-const ACTIVE_SHOPIFY_SHOPS = {};
+// Create server using Koa
+const server = new Koa();
+server.use(session(server));
+server.keys = [SHOPIFY_API_SECRET];
 
-app.prepare().then(() => {
-  const server = new Koa();
-  const router = new Router();
-  server.keys = [Shopify.Context.API_SECRET_KEY];
+// Import and use server-side routes
+const { router } = require('./server/routes.js');
+server.use(router.routes());
+server.use(router.allowedMethods());
 
-  server.use(
+// Authenticate app with Shopify
+server.use(
     createShopifyAuth({
-      async afterAuth(ctx) {
-        const {shop, scope, accessToken} = ctx.state.shopify;
-        ACTIVE_SHOPIFY_SHOPS[shop] = scope;
-
-        const registration = await Shopify.Webhooks.Registry.register({
-          shop,
-          accessToken,
-          path: '/webhooks',
-          topic: 'APP_UNINSTALLED',
-          apiVersion: ApiVersion.October20,
-          webhookHandler: (_topic, shop, _body) => {
-            console.log('App uninstalled');
-            delete ACTIVE_SHOPIFY_SHOPS[shop];
-          },
-        });
-
-        if (registration.success) {
-          console.log('Successfully registered webhook!');
-        } else {
-          console.log('Failed to register webhook', registration.result);
+        apiKey: SHOPIFY_API_KEY,
+        secret: SHOPIFY_API_SECRET,
+        scopes: ["write_products", "write_orders"],
+        afterAuth(ctx) {
+            const { shop, accessToken } = ctx.session;
+            ctx.cookies.set("accessToken", accessToken, { httpOnly: false });
+            ctx.cookies.set("shopOrigin", shop, { httpOnly: false });
+            ctx.redirect("/");
         }
+    })
+);
+server.use(verifyRequest());
 
-        const returnUrl = `https://${Shopify.Context.HOST_NAME}/?shop=${shop}`;
-        const subscriptionUrl = await getSubscriptionUrl(accessToken, shop, returnUrl);
-        ctx.redirect(subscriptionUrl);
-      },
-    }),
-  );
+// Enable CORS (required to let Shopify access this API)
+server.use(cors());
 
-  router.post("/graphql", verifyRequest({returnHeader: true}), async (ctx, next) => {
-    await Shopify.Utils.graphqlProxy(ctx.req, ctx.res);
-  });
+// Use module 'koa-bodyparser'
+server.use(bodyParser());
 
-  router.post('/webhooks', async (ctx) => {
-    await Shopify.Webhooks.Registry.process(ctx.req, ctx.res);
-    console.log(`Webhook processed with status code 200`);
-  });
+// Mount app on root path using compiled Vue app in the dist folder
+server.use(mount("/", koaStatic(__dirname + "/build")));
 
-  const handleRequest = async (ctx) => {
-    await handle(ctx.req, ctx.res);
-    ctx.respond = false;
-    ctx.res.statusCode = 200;
-  };
-
-  router.get("/", async (ctx) => {
-    const shop = ctx.query.shop;
-
-    if (ACTIVE_SHOPIFY_SHOPS[shop] === undefined) {
-      ctx.redirect(`/auth?shop=${shop}`);
-    } else {
-      await handleRequest(ctx);
-    }
-  });
-
-  router.get("(/_next/static/.*)", handleRequest);
-  router.get("/_next/webpack-hmr", handleRequest);
-  router.get("(.*)", verifyRequest(), handleRequest);
-
-  server.use(router.allowedMethods());
-  server.use(router.routes());
-
-  server.listen(port, () => {
+// Start-up the server
+server.listen(port, () => {
     console.log(`> Ready on http://localhost:${port}`);
-  });
 });
