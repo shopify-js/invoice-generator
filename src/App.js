@@ -12,9 +12,9 @@ class App extends React.Component {
 
   async componentDidMount() {
     const url = '/api/products';
-    console.log('get products path : ' + url);
-    let ordersList = await Axios.get(url);
+    let orders = await Axios.get(url);
     console.log(ordersList);
+    this.setState({ orders });
   }
 
   render() {
