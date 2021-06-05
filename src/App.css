@@ -1,4 +1,4 @@
-.App-header {
+.App {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -7,4 +7,11 @@
 
 .App-link {
   color: #61dafb;
+}
+
+.list-item {
+  padding: 15px;
+  margin: -1px -1px 0;
+  border: 1px solid black;
+  list-style: none;
 }

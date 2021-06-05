@@ -29,7 +29,7 @@ router.get('/api/orders', async (ctx) => {
 });
 
 // GET order detail
-router.get('/api/orders', async (ctx) => {
+router.get('/api/orderDetail', async (ctx) => {
     const auth = prepareAuth(ctx);
     await getOrders(auth)
         .then(response => ctx.body = response.data.data.orders);
