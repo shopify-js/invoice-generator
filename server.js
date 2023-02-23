@@ -16,7 +16,8 @@ Shopify.Context.initialize({
   HOST_NAME: process.env.APP_URL.replace(/https:\/\//, ""),
   API_VERSION: ApiVersion.October20,
   IS_EMBEDDED_APP: false,
-  SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage(process.env.MONGODB_URI, process.env.MONGODB_DB_NAME),
+  // SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage(process.env.MONGODB_URI, process.env.MONGODB_DB_NAME),
+  SESSION_STORAGE: new Shopify.Session.MemorySessionStorage()
 });
 
 const port = parseInt(process.env.PORT, 10) || 3000;
